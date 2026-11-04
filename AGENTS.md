@@ -38,3 +38,9 @@ Tracer Bullet: prove a small real path through sign in, data, and the interface 
 - Validate untrusted inputs on the backend. Return only data needed by each caller.
 - Keep credentials and secrets out of source, logs, and exported workflows.
 - Keep the scope and architecture records current as implementation decisions become real.
+
+## Branch and pull request workflow
+
+- Start each new step on its own `codex/step-<number>-<short-name>` branch from an up to date `main`.
+- When a step is complete and verified, commit its changes, push the branch, and open a pull request against `main`.
+- Keep each pull request focused on its step and report any blocker to creating it.

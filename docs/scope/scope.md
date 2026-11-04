@@ -16,7 +16,7 @@ LendLoop is an interview assignment for a neighborhood tool lending board. Neigh
 | 3 | Data and access model | Foundation | done |
 | 4 | Accessible interface foundation | Foundation | done |
 | 5 | First lending journey | Slice 1 | done |
-| 6 | Public discovery and listings | Slice 2 | planned |
+| 6 | Public discovery and listings | Slice 2 | done |
 | 7 | Request and loan management | Slice 3 | planned |
 | 8 | Admin controls | Slice 4 | planned |
 | 9 | Request notifications | Slice 5 | planned |
@@ -77,10 +77,13 @@ Code: `components/board/lending-workspace.tsx`, `convex/tools.ts`, and `convex/r
 
 ## Slice 2: Discover and manage tools
 
-### 6. Public discovery and listings · planned
+### 6. Public discovery and listings · done
 Let visitors discover tools and let signed in neighbors manage their own listings.
 **Done when:** visitors see available tool names and categories only, can sign in, and signed in neighbors can filter tools and create, edit, and delete their own listings.
-- [ ] Build it: `/develop public discovery and listings`
+- [x] Build category filtering, paginated browsing, and owner listing management.
+- [x] Verify filtering and editing in the browser, and test ownership, pagination, and removal rules.
+
+Code: `components/board/listing-management.tsx`, `components/board/lending-workspace.tsx`, and `convex/tools.ts`.
 
 ## Slice 3: Manage requests and returns
 

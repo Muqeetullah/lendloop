@@ -164,3 +164,108 @@ export const board = query({
     );
   },
 });
+
+const listingView = v.object({
+  id: v.id("tools"),
+  name: v.string(),
+  category: v.string(),
+  condition: v.string(),
+  description: v.string(),
+  own: v.boolean(),
+  available: v.boolean(),
+});
+
+// The selected category is indexed so a page is filtered before it is read.
+export const boardPage = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    category: v.optional(v.string()),
+    refreshKey: v.optional(v.string()),
+  },
+  returns: paginationResultValidator(listingView),
+  handler: async (ctx, { paginationOpts, category, refreshKey }) => {
+    const { user } = await userOrThrow(ctx);
+    if (
+      paginationOpts.numItems < 1 ||
+      paginationOpts.numItems > 50 ||
+      (category !== undefined && (!category.trim() || category.length > 40)) ||
+      (refreshKey && refreshKey.length > 10)
+    )
+      throw new Error("Invalid page request");
+    const page =
+      category === undefined
+        ? await ctx.db
+            .query("tools")
+            .withIndex("by_archived", (q) => q.eq("archived", false))
+            .order("desc")
+            .paginate(paginationOpts)
+        : await ctx.db
+            .query("tools")
+            .withIndex("by_archived_category", (q) =>
+              q.eq("archived", false).eq("category", category),
+            )
+            .order("desc")
+            .paginate(paginationOpts);
+    const today = todayUtc();
+    return {
+      ...page,
+      page: await Promise.all(
+        page.page.map(async (tool) => {
+          const current = await ctx.db
+            .query("requests")
+            .withIndex("by_tool_status_start", (q) =>
+              q
+                .eq("toolId", tool._id)
+                .eq("status", "approved")
+                .lte("startDate", today),
+            )
+            .first();
+          return {
+            id: tool._id,
+            name: tool.name,
+            category: tool.category,
+            condition: tool.condition,
+            description: tool.description,
+            own: tool.ownerId === user._id,
+            available: !current,
+          };
+        }),
+      ),
+    };
+  },
+});
+
+export const myListingsPage = query({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(
+    v.object({
+      id: v.id("tools"),
+      name: v.string(),
+      category: v.string(),
+      condition: v.string(),
+      description: v.string(),
+    }),
+  ),
+  handler: async (ctx, { paginationOpts }) => {
+    const { user } = await userOrThrow(ctx);
+    if (paginationOpts.numItems < 1 || paginationOpts.numItems > 50)
+      throw new Error("Invalid page request");
+    const page = await ctx.db
+      .query("tools")
+      .withIndex("by_owner_archived", (q) =>
+        q.eq("ownerId", user._id).eq("archived", false),
+      )
+      .order("desc")
+      .paginate(paginationOpts);
+    return {
+      ...page,
+      page: page.page.map((tool) => ({
+        id: tool._id,
+        name: tool.name,
+        category: tool.category,
+        condition: tool.condition,
+        description: tool.description,
+      })),
+    };
+  },
+});

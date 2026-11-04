@@ -25,7 +25,9 @@ export default defineSchema({
     archived: v.boolean(),
   })
     .index("by_owner", ["ownerId"])
-    .index("by_archived", ["archived"]),
+    .index("by_owner_archived", ["ownerId", "archived"])
+    .index("by_archived", ["archived"])
+    .index("by_archived_category", ["archived", "category"]),
   requests: defineTable({
     toolId: v.id("tools"),
     lenderId: v.id("users"),

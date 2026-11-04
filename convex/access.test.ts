@@ -107,6 +107,115 @@ describe("lending access and invariants", () => {
     ).toMatchObject([{ status: "approved" }]);
   });
 
+  it("filters the board by category, paginates it, and keeps listings owner scoped", async () => {
+    const { t, owner, borrower, toolId } = await setup();
+    const garden = await owner.mutation(api.tools.create, {
+      ...listing,
+      name: "Spade",
+      category: "Garden",
+    });
+    await borrower.mutation(api.tools.create, {
+      ...listing,
+      name: "Oven",
+      category: "Kitchen",
+    });
+    const opts = { numItems: 1, cursor: null };
+    await expect(
+      t.query(api.tools.boardPage, { paginationOpts: opts }),
+    ).rejects.toThrow("Authentication required");
+    const gardenPage = await borrower.query(api.tools.boardPage, {
+      paginationOpts: opts,
+      category: "Garden",
+    });
+    expect(gardenPage.page).toMatchObject([
+      { id: garden, name: "Spade", own: false },
+    ]);
+    expect(gardenPage.isDone).toBe(true);
+    const page1 = await owner.query(api.tools.myListingsPage, {
+      paginationOpts: opts,
+    });
+    expect(page1.isDone).toBe(false);
+    const page2 = await owner.query(api.tools.myListingsPage, {
+      paginationOpts: { numItems: 1, cursor: page1.continueCursor },
+    });
+    expect([...page1.page, ...page2.page].map((item) => item.id)).toEqual(
+      expect.arrayContaining([toolId, garden]),
+    );
+    expect(
+      (
+        await borrower.query(api.tools.myListingsPage, {
+          paginationOpts: { numItems: 10, cursor: null },
+        })
+      ).page.map((item: { name: string }) => item.name),
+    ).toEqual(["Oven"]);
+    await expect(
+      borrower.mutation(api.tools.edit, { toolId: garden, ...listing }),
+    ).rejects.toThrow("Not authorized");
+    await expect(
+      borrower.mutation(api.tools.archive, { toolId: garden }),
+    ).rejects.toThrow("Not authorized");
+    await owner.mutation(api.tools.edit, {
+      toolId: garden,
+      ...listing,
+      name: "Garden spade",
+      category: "Garden",
+    });
+    expect(
+      (
+        await owner.query(api.tools.myListingsPage, {
+          paginationOpts: { numItems: 10, cursor: null },
+        })
+      ).page,
+    ).toMatchObject([{ name: "Garden spade" }, { name: "Drill" }]);
+    await owner.mutation(api.tools.archive, { toolId: garden });
+    expect(
+      (
+        await owner.query(api.tools.myListingsPage, {
+          paginationOpts: { numItems: 10, cursor: null },
+        })
+      ).page.map((item: { name: string }) => item.name),
+    ).toEqual(["Drill"]);
+    expect(
+      (
+        await borrower.query(api.tools.boardPage, {
+          paginationOpts: opts,
+          category: "Garden",
+        })
+      ).page,
+    ).toEqual([]);
+  });
+
+  it("browses past the first 100 listings", async () => {
+    const { t, owner } = await setup();
+    await t.run(async (ctx) => {
+      const first = await ctx.db.query("tools").first();
+      if (!first) throw new Error("Missing test tool");
+      for (let i = 0; i < 105; i++)
+        await ctx.db.insert("tools", {
+          ownerId: first.ownerId,
+          name: `Tool ${i}`,
+          category: "Garden",
+          condition: "Good",
+          description: "Test",
+          archived: false,
+        });
+    });
+    let cursor: string | null = null;
+    let count = 0;
+    let done = false;
+    while (!done) {
+      const page: { page: unknown[]; isDone: boolean; continueCursor: string } =
+        await owner.query(api.tools.boardPage, {
+          category: "Garden",
+          paginationOpts: { numItems: 25, cursor },
+        });
+      count += page.page.length;
+      cursor = page.continueCursor;
+      done = page.isDone;
+    }
+    expect(count).toBe(105);
+  });
+
   it("validates dates and prohibits requests for one's own tool", async () => {
     const { owner, borrower, toolId } = await setup();
     await expect(
