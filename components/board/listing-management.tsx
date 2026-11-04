@@ -1,7 +1,9 @@
 "use client";
 
-import { useMutation, usePaginatedQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useId, useState, type FormEvent } from "react";
+import { usePageCursor } from "@/components/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -149,14 +151,15 @@ export function ListingForm({
 }
 
 export function MyListings() {
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.tools.myListingsPage,
-    {},
-    { initialNumItems: 10 },
-  );
+  const paging = usePageCursor();
+  const page = useQuery(api.tools.myListingsPage, {
+    paginationOpts: { numItems: 6, cursor: paging.cursor },
+  });
+  const results = page?.page ?? [];
   const archive = useMutation(api.tools.archive);
+  const [createSession, setCreateSession] = useState<object | null>(null);
   const [editing, setEditing] = useState<{ id: Id<"tools"> } | null>(null);
-  const [removing, setRemoving] = useState<Id<"tools"> | null>(null);
+  const [removing, setRemoving] = useState<{ id: Id<"tools"> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   async function remove(toolId: Id<"tools">) {
@@ -164,7 +167,7 @@ export function MyListings() {
     setMessage("");
     try {
       await archive({ toolId });
-      setRemoving(null);
+      setRemoving((current) => (current === removing ? null : current));
       setMessage("Listing removed. Loan history is preserved.");
     } catch {
       setMessage("Couldn’t remove this listing. Please try again.");
@@ -176,16 +179,32 @@ export function MyListings() {
     <section className="my-listings" aria-labelledby="my-listings-heading">
       <div className="workspace-heading">
         <div>
-          <h3 id="my-listings-heading">My listings</h3>
+          <p className="eyebrow">YOUR TOOLS</p>
+          <h2 id="my-listings-heading">My listings</h2>
           <p>Manage the tools you share with your neighbors.</p>
         </div>
+        <Button
+          variant={createSession ? "secondary" : "primary"}
+          onClick={() => setCreateSession((current) => (current ? null : {}))}
+        >
+          {createSession ? "Close form" : "+ List a tool"}
+        </Button>
       </div>
+      {createSession && (
+        <ListingForm
+          onDone={() =>
+            setCreateSession((current) =>
+              current === createSession ? null : current,
+            )
+          }
+        />
+      )}
       {message && (
         <p className="listing-message" role="status">
           {message}
         </p>
       )}
-      {status === "LoadingFirstPage" ? (
+      {page === undefined ? (
         <StatePanel
           kind="loading"
           title="Loading your listings"
@@ -213,7 +232,7 @@ export function MyListings() {
                     )
                   }
                 />
-              ) : removing === listing.id ? (
+              ) : removing?.id === listing.id ? (
                 <div className="remove-confirmation">
                   <p>
                     Remove {listing.name}? It will disappear from the board.
@@ -255,7 +274,7 @@ export function MyListings() {
                     aria-label={`Remove ${listing.name}`}
                     onClick={() => {
                       setEditing(null);
-                      setRemoving(listing.id);
+                      setRemoving({ id: listing.id });
                       setMessage("");
                     }}
                   >
@@ -267,17 +286,16 @@ export function MyListings() {
           ))}
         </ul>
       )}
-      {(status === "CanLoadMore" || status === "LoadingMore") && (
-        <div className="load-more">
-          <Button
-            variant="secondary"
-            disabled={status === "LoadingMore"}
-            onClick={() => loadMore(10)}
-          >
-            {status === "LoadingMore" ? "Loading…" : "Show more listings"}
-          </Button>
-        </div>
-      )}
+      <Pagination
+        label="My listings"
+        page={paging.page}
+        hasNext={page ? !page.isDone : false}
+        loading={!page}
+        previous={paging.previous}
+        next={() => {
+          if (page) paging.next(page.continueCursor);
+        }}
+      />
     </section>
   );
 }

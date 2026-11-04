@@ -32,19 +32,25 @@ export function SiteHeader() {
         <Brand />
         <nav className="site-nav" aria-label="Main navigation">
           <Link href="/#tools">Explore tools</Link>
-          <Show when="signed-in">
-            <Link href="/#workspace">My workspace</Link>
-          </Show>
-          <a className="site-nav__how" href="#how-it-works">
+          <Suspense>
+            <Show when="signed-in">
+              <Link href="/dashboard">Dashboard</Link>
+            </Show>
+          </Suspense>
+          <Link className="site-nav__how" href="/#how-it-works">
             How it works
-          </a>
+          </Link>
         </nav>
         <div className="header-account">
           <Suspense
             fallback={<span className="account-loading">Loading account…</span>}
           >
             <Show when="signed-out">
-              <SignInButton mode="modal">
+              <SignInButton
+                mode="modal"
+                forceRedirectUrl="/dashboard"
+                signUpForceRedirectUrl="/dashboard"
+              >
                 <Button
                   variant="secondary"
                   aria-label="Sign in to lend or borrow"

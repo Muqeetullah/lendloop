@@ -18,6 +18,7 @@ LendLoop is an interview assignment for a neighborhood tool lending board. Neigh
 | 5 | First lending journey | Slice 1 | done |
 | 6 | Public discovery and listings | Slice 2 | done |
 | 7 | Request and loan management | Slice 3 | done |
+| 7a | Dashboard and page navigation | Refinement | done |
 | 8 | Admin controls | Slice 4 | planned |
 | 9 | Request notifications | Slice 5 | planned |
 | 10 | Overdue reminders | Slice 6 | planned |
@@ -95,6 +96,14 @@ Complete the lending journey and provide views for both sides.
 - [x] Verify request and decline in two real development accounts, plus authorization and transition tests.
 
 Code: `components/board/lending-workspace.tsx`, `components/board/request-errors.ts`, and `convex/requests.ts`.
+
+### 7a. Dashboard and page navigation · done
+Separate the public landing page from focused signed in views for browsing, listings, requests, incoming requests, and sharing details. Show one bounded page at a time with previous and next controls.
+- [x] Move lending actions to a dedicated dashboard with distinct navigation.
+- [x] Add page navigation to public tools, dashboard tools, listings, and both request views.
+- [x] Verify dashboard navigation and request pagination in the running app.
+
+Code: `app/dashboard/`, `components/board/`, and `components/lib/pagination.ts`.
 
 ## Slice 4: Admin controls
 

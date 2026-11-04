@@ -1,7 +1,9 @@
 "use client";
 
-import { useConvexConnectionState, usePaginatedQuery } from "convex/react";
+import { useConvexConnectionState, useQuery } from "convex/react";
 import { Component, useEffect, useState, type ReactNode } from "react";
+import { usePageCursor } from "@/components/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { useUtcDay } from "@/components/lib/use-utc-day";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -41,15 +43,11 @@ class CollectionBoundary extends Component<
 
 function Collection() {
   const day = useUtcDay();
-  const {
-    results: tools,
-    status,
-    loadMore,
-  } = usePaginatedQuery(
-    api.tools.publicAvailable,
-    { refreshKey: day },
-    { initialNumItems: 20 },
-  );
+  const paging = usePageCursor();
+  const result = useQuery(api.tools.publicAvailable, {
+    refreshKey: day,
+    paginationOpts: { numItems: 6, cursor: paging.cursor },
+  });
   const { isWebSocketConnected, hasEverConnected } = useConvexConnectionState();
   const [connectionWaited, setConnectionWaited] = useState(false);
 
@@ -66,21 +64,32 @@ function Collection() {
         description="We’ll keep trying. Check your internet connection if this takes a while."
       />
     );
-  if (status === "LoadingFirstPage")
+  if (result === undefined)
     return (
-      <StatePanel
-        kind="loading"
-        title="Looking for tools"
-        description="Gathering the latest from the neighborhood."
-      />
+      <>
+        <StatePanel
+          kind="loading"
+          title="Looking for tools"
+          description="Gathering the latest from the neighborhood."
+        />
+        <Pagination
+          label="Available tools"
+          page={paging.page}
+          hasNext={false}
+          loading
+          previous={paging.previous}
+          next={() => {}}
+        />
+      </>
     );
+  const tools = result.page;
   return (
     <>
       {tools.length === 0 ? (
         <StatePanel
           title="No available tools on this page"
           description={
-            status === "Exhausted"
+            result.isDone
               ? "There aren’t any more available tools right now."
               : "There may be more tools on the next page."
           }
@@ -104,17 +113,14 @@ function Collection() {
           ))}
         </ul>
       )}
-      {(status === "CanLoadMore" || status === "LoadingMore") && (
-        <div className="load-more">
-          <Button
-            variant="secondary"
-            disabled={status === "LoadingMore"}
-            onClick={() => loadMore(20)}
-          >
-            {status === "LoadingMore" ? "Loading…" : "Show more tools"}
-          </Button>
-        </div>
-      )}
+      <Pagination
+        label="Available tools"
+        page={paging.page}
+        hasNext={!result.isDone}
+        loading={false}
+        previous={paging.previous}
+        next={() => paging.next(result.continueCursor)}
+      />
     </>
   );
 }

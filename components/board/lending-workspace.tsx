@@ -1,12 +1,8 @@
 "use client";
 
-import { Show } from "@clerk/nextjs";
-import {
-  useConvexAuth,
-  useMutation,
-  useQuery,
-  usePaginatedQuery,
-} from "convex/react";
+import { Show, SignInButton } from "@clerk/nextjs";
+import Link from "next/link";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
   Component,
   useEffect,
@@ -14,6 +10,8 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { usePageCursor } from "@/components/lib/pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { useUtcDay } from "@/components/lib/use-utc-day";
 import { requestErrorMessage } from "@/components/board/request-errors";
 import {
@@ -56,30 +54,67 @@ class WorkspaceBoundary extends Component<
   }
 }
 
-export function LendingWorkspace() {
+export type DashboardView =
+  "tools" | "listings" | "requests" | "incoming" | "profile";
+const dashboardLinks: { view: DashboardView; label: string; icon: string }[] = [
+  { view: "tools", label: "Browse tools", icon: "⌂" },
+  { view: "listings", label: "My listings", icon: "▤" },
+  { view: "requests", label: "My requests", icon: "↗" },
+  { view: "incoming", label: "Incoming requests", icon: "↙" },
+  { view: "profile", label: "Sharing details", icon: "✳" },
+];
+
+export function LendingWorkspace({ view }: { view: DashboardView }) {
   return (
-    <Show when="signed-in">
-      <section
-        className="workspace shell"
-        id="workspace"
-        aria-labelledby="workspace-heading"
-      >
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">YOUR NEIGHBORHOOD</p>
-            <h2 id="workspace-heading">Let’s share something.</h2>
-            <p>List a tool, ask to borrow, and keep track of requests.</p>
+    <>
+      <Show when="signed-in">
+        <div className="dashboard-header">
+          <p className="eyebrow">YOUR NEIGHBORHOOD</p>
+          <h1>Your LendLoop.</h1>
+          <p>A little more sharing, all in one place.</p>
+        </div>
+        <div className="dashboard-layout">
+          <nav className="dashboard-nav" aria-label="Dashboard navigation">
+            {dashboardLinks.map((link) => (
+              <Link
+                key={link.view}
+                href={`/dashboard?view=${link.view}`}
+                aria-current={view === link.view ? "page" : undefined}
+              >
+                <span aria-hidden="true">{link.icon}</span>
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="dashboard-content">
+            <WorkspaceBoundary>
+              <ConnectWorkspace view={view} />
+            </WorkspaceBoundary>
           </div>
         </div>
-        <WorkspaceBoundary>
-          <ConnectWorkspace />
-        </WorkspaceBoundary>
-      </section>
-    </Show>
+      </Show>
+      <Show when="signed-out">
+        <div className="dashboard-signed-out">
+          <StatePanel
+            title="Sign in to your dashboard"
+            description="Sign in to list tools and manage your requests."
+            action={
+              <SignInButton
+                mode="modal"
+                forceRedirectUrl={`/dashboard?view=${view}`}
+                signUpForceRedirectUrl={`/dashboard?view=${view}`}
+              >
+                <Button>Sign in to lend or borrow</Button>
+              </SignInButton>
+            }
+          />
+        </div>
+      </Show>
+    </>
   );
 }
 
-function ConnectWorkspace() {
+function ConnectWorkspace({ view }: { view: DashboardView }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const ensure = useMutation(api.users.ensureCurrent);
   const [ready, setReady] = useState(false);
@@ -126,63 +161,60 @@ function ConnectWorkspace() {
         description="Connecting your account to the board."
       />
     );
-  return <Workspace />;
+  return <Workspace view={view} />;
 }
 
-function Workspace() {
+function Workspace({ view }: { view: DashboardView }) {
+  if (view === "listings") return <MyListings />;
+  if (view === "requests")
+    return <RequestSection key="outgoing" side="outgoing" />;
+  if (view === "incoming")
+    return <RequestSection key="incoming" side="incoming" />;
+  if (view === "profile")
+    return (
+      <>
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow">YOUR PROFILE</p>
+            <h2>Sharing details</h2>
+            <p>Choose how neighbors can recognize and reach you.</p>
+          </div>
+        </div>
+        <ProfileEditor />
+      </>
+    );
+  return <ToolBrowser />;
+}
+
+function ToolBrowser() {
   const day = useUtcDay();
   const [category, setCategory] = useState("");
-  const tools = usePaginatedQuery(
-    api.tools.boardPage,
-    { refreshKey: day, ...(category ? { category } : {}) },
-    { initialNumItems: 12 },
-  );
-  const incoming = usePaginatedQuery(
-    api.requests.journeyPage,
-    { side: "incoming" },
-    { initialNumItems: 10 },
-  );
-  const outgoing = usePaginatedQuery(
-    api.requests.journeyPage,
-    { side: "outgoing" },
-    { initialNumItems: 10 },
-  );
-  const [showForm, setShowForm] = useState(false);
-  const [requestTool, setRequestTool] = useState<{ id: Id<"tools"> } | null>(
-    null,
-  );
-  const [requestMessage, setRequestMessage] = useState("");
-  if (
-    incoming.status === "LoadingFirstPage" ||
-    outgoing.status === "LoadingFirstPage"
-  )
-    return (
-      <StatePanel
-        kind="loading"
-        title="Gathering your tools"
-        description="Just a moment."
-      />
-    );
+  const [createSession, setCreateSession] = useState<object | null>(null);
   return (
     <>
-      <ProfileEditor />
       <div className="workspace-heading">
         <div>
-          <h3>Neighborhood tools</h3>
-          <p>Availability is based on today in UTC.</p>
+          <p className="eyebrow">THE SHARED SHED</p>
+          <h2>Browse tools</h2>
+          <p>
+            Find something useful nearby. Availability is based on today in UTC.
+          </p>
         </div>
         <Button
-          onClick={() => setShowForm(!showForm)}
-          variant={showForm ? "secondary" : "primary"}
+          onClick={() => setCreateSession((current) => (current ? null : {}))}
+          variant={createSession ? "secondary" : "primary"}
         >
-          {showForm ? "Close form" : "+ List a tool"}
+          {createSession ? "Close form" : "+ List a tool"}
         </Button>
       </div>
-      {showForm && <ListingForm onDone={() => setShowForm(false)} />}
-      {requestMessage && (
-        <p role="status" className="listing-message">
-          {requestMessage}
-        </p>
+      {createSession && (
+        <ListingForm
+          onDone={() =>
+            setCreateSession((current) =>
+              current === createSession ? null : current,
+            )
+          }
+        />
       )}
       <div className="category-filter">
         <label className="field__label" htmlFor="board-category">
@@ -202,26 +234,49 @@ function Workspace() {
           ))}
         </select>
       </div>
-      {tools.status === "LoadingFirstPage" ? (
+      <ToolResults key={`${category}:${day}`} category={category} day={day} />
+    </>
+  );
+}
+
+function ToolResults({ category, day }: { category: string; day: string }) {
+  const paging = usePageCursor();
+  const tools = useQuery(api.tools.boardPage, {
+    refreshKey: day,
+    ...(category ? { category } : {}),
+    paginationOpts: { numItems: 6, cursor: paging.cursor },
+  });
+  const [requestTool, setRequestTool] = useState<{ id: Id<"tools"> } | null>(
+    null,
+  );
+  const [requestMessage, setRequestMessage] = useState("");
+  return (
+    <>
+      {requestMessage && (
+        <p role="status" className="listing-message">
+          {requestMessage}
+        </p>
+      )}
+      {!tools ? (
         <StatePanel
           kind="loading"
           title="Loading neighborhood tools"
           description="Just a moment."
         />
-      ) : tools.results.length === 0 ? (
+      ) : tools.page.length === 0 ? (
         <StatePanel
           title={
-            category ? "No tools in this category" : "Be the first to share"
+            category ? "No tools in this category" : "No tools on this page"
           }
           description={
             category
               ? "Choose another category to see more tools."
-              : "Add a tool to get your neighborhood started."
+              : "Try another page or list a tool to get started."
           }
         />
       ) : (
         <ul className="journey-grid">
-          {tools.results.map((tool) => (
+          {tools.page.map((tool) => (
             <li className="journey-card" key={tool.id}>
               <div className="journey-card__top">
                 <span className="tool-card__category">{tool.category}</span>
@@ -230,7 +285,7 @@ function Workspace() {
                   {tool.available ? "Available today" : "On loan"}
                 </span>
               </div>
-              <h4>{tool.name}</h4>
+              <h3>{tool.name}</h3>
               <p>{tool.description}</p>
               <p className="journey-meta">Condition: {tool.condition}</p>
               {!tool.own && (
@@ -265,37 +320,68 @@ function Workspace() {
           ))}
         </ul>
       )}
-      {(tools.status === "CanLoadMore" || tools.status === "LoadingMore") && (
-        <div className="load-more">
-          <Button
-            variant="secondary"
-            disabled={tools.status === "LoadingMore"}
-            onClick={() => tools.loadMore(12)}
-          >
-            {tools.status === "LoadingMore"
-              ? "Loading…"
-              : "Show more neighborhood tools"}
-          </Button>
+      <Pagination
+        label="Neighborhood tools"
+        page={paging.page}
+        hasNext={tools ? !tools.isDone : false}
+        loading={!tools}
+        previous={paging.previous}
+        next={() => {
+          if (tools) paging.next(tools.continueCursor);
+        }}
+      />
+    </>
+  );
+}
+
+function RequestSection({ side }: { side: "incoming" | "outgoing" }) {
+  const paging = usePageCursor();
+  const result = useQuery(api.requests.journeyPage, {
+    side,
+    paginationOpts: { numItems: 5, cursor: paging.cursor },
+  });
+  const incoming = side === "incoming";
+  return (
+    <>
+      <div className="workspace-heading">
+        <div>
+          <p className="eyebrow">{incoming ? "LENDING" : "BORROWING"}</p>
+          <h2>{incoming ? "Incoming requests" : "My requests"}</h2>
+          <p>
+            {incoming
+              ? "Review requests for tools you share."
+              : "Keep track of tools you have asked to borrow."}
+          </p>
         </div>
-      )}
-      <MyListings />
-      <div className="request-columns">
-        <RequestList
-          title="Incoming requests"
-          empty="Requests for your tools will appear here."
-          requests={incoming.results}
-          paginationStatus={incoming.status}
-          loadMore={() => incoming.loadMore(10)}
-          incoming
-        />
-        <RequestList
-          title="My requests"
-          empty="Your requests to borrow will appear here."
-          requests={outgoing.results}
-          paginationStatus={outgoing.status}
-          loadMore={() => outgoing.loadMore(10)}
-        />
       </div>
+      {!result ? (
+        <StatePanel
+          kind="loading"
+          title="Loading requests"
+          description="Just a moment."
+        />
+      ) : (
+        <RequestList
+          title={incoming ? "Incoming requests" : "My requests"}
+          empty={
+            incoming
+              ? "Requests for your tools will appear here."
+              : "Your requests to borrow will appear here."
+          }
+          requests={result.page}
+          incoming={incoming}
+        />
+      )}
+      <Pagination
+        label={incoming ? "Incoming requests" : "My requests"}
+        page={paging.page}
+        hasNext={result ? !result.isDone : false}
+        loading={!result}
+        previous={paging.previous}
+        next={() => {
+          if (result) paging.next(result.continueCursor);
+        }}
+      />
     </>
   );
 }
@@ -460,16 +546,11 @@ function RequestList({
   empty,
   requests,
   incoming = false,
-  paginationStatus,
-  loadMore,
 }: {
   title: string;
   empty: string;
   requests: RequestItem[];
   incoming?: boolean;
-  paginationStatus:
-    "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted";
-  loadMore: () => void;
 }) {
   const respond = useMutation(api.requests.respond);
   const markReturned = useMutation(api.requests.markReturned);
@@ -584,18 +665,6 @@ function RequestList({
             </li>
           ))}
         </ul>
-      )}
-      {(paginationStatus === "CanLoadMore" ||
-        paginationStatus === "LoadingMore") && (
-        <Button
-          variant="secondary"
-          disabled={paginationStatus === "LoadingMore"}
-          onClick={loadMore}
-        >
-          {paginationStatus === "LoadingMore"
-            ? "Loading…"
-            : "Show more requests"}
-        </Button>
       )}
     </section>
   );
