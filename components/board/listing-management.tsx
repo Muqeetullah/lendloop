@@ -155,7 +155,7 @@ export function MyListings() {
     { initialNumItems: 10 },
   );
   const archive = useMutation(api.tools.archive);
-  const [editing, setEditing] = useState<Id<"tools"> | null>(null);
+  const [editing, setEditing] = useState<{ id: Id<"tools"> } | null>(null);
   const [removing, setRemoving] = useState<Id<"tools"> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -204,10 +204,14 @@ export function MyListings() {
               <h4>{listing.name}</h4>
               <p>{listing.description}</p>
               <p className="journey-meta">Condition: {listing.condition}</p>
-              {editing === listing.id ? (
+              {editing?.id === listing.id ? (
                 <ListingForm
                   listing={listing}
-                  onDone={() => setEditing(null)}
+                  onDone={() =>
+                    setEditing((current) =>
+                      current === editing ? null : current,
+                    )
+                  }
                 />
               ) : removing === listing.id ? (
                 <div className="remove-confirmation">
@@ -240,7 +244,7 @@ export function MyListings() {
                     aria-label={`Edit ${listing.name}`}
                     onClick={() => {
                       setRemoving(null);
-                      setEditing(listing.id);
+                      setEditing({ id: listing.id });
                       setMessage("");
                     }}
                   >
