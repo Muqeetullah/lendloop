@@ -17,7 +17,7 @@ LendLoop is an interview assignment for a neighborhood tool lending board. Neigh
 | 4 | Accessible interface foundation | Foundation | done |
 | 5 | First lending journey | Slice 1 | done |
 | 6 | Public discovery and listings | Slice 2 | done |
-| 7 | Request and loan management | Slice 3 | planned |
+| 7 | Request and loan management | Slice 3 | done |
 | 8 | Admin controls | Slice 4 | planned |
 | 9 | Request notifications | Slice 5 | planned |
 | 10 | Overdue reminders | Slice 6 | planned |
@@ -87,10 +87,14 @@ Code: `components/board/listing-management.tsx`, `components/board/lending-works
 
 ## Slice 3: Manage requests and returns
 
-### 7. Request and loan management · planned
+### 7. Request and loan management · done
 Complete the lending journey and provide views for both sides.
 **Done when:** neighbors can view their listings, outgoing requests, and incoming requests, request valid date ranges, approve or decline requests on their own tools, and mark eligible loans returned; conflicting approvals and unauthorized actions are rejected.
-- [ ] Build it: `/develop request and loan management`
+- [x] Provide participant request views, approval, decline, and returns with backend access checks.
+- [x] Explain invalid dates, conflicting approvals, removed listings, and duplicate requests.
+- [x] Verify request and decline in two real development accounts, plus authorization and transition tests.
+
+Code: `components/board/lending-workspace.tsx`, `components/board/request-errors.ts`, and `convex/requests.ts`.
 
 ## Slice 4: Admin controls
 

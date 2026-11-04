@@ -554,6 +554,55 @@ describe("lending access and invariants", () => {
     expect(second.page).toEqual([]);
   });
 
+  it("shows removed listings to participants and only permits declining pending requests", async () => {
+    const { owner, borrower, stranger, toolId } = await setup();
+    const requestId = await borrower.mutation(api.requests.create, {
+      toolId,
+      ...days,
+    });
+    await owner.mutation(api.tools.archive, { toolId });
+    const paginationOpts = { numItems: 10, cursor: null };
+    expect(
+      (
+        await owner.query(api.requests.journeyPage, {
+          side: "incoming",
+          paginationOpts,
+        })
+      ).page,
+    ).toMatchObject([{ id: requestId, status: "pending", toolArchived: true }]);
+    expect(
+      (
+        await borrower.query(api.requests.journeyPage, {
+          side: "outgoing",
+          paginationOpts,
+        })
+      ).page,
+    ).toMatchObject([{ id: requestId, status: "pending", toolArchived: true }]);
+    await expect(
+      stranger.mutation(api.requests.respond, {
+        requestId,
+        decision: "declined",
+      }),
+    ).rejects.toThrow("Not authorized");
+    await expect(
+      owner.mutation(api.requests.respond, { requestId, decision: "approved" }),
+    ).rejects.toThrow("Listing unavailable");
+    await owner.mutation(api.requests.respond, {
+      requestId,
+      decision: "declined",
+    });
+    expect(
+      (
+        await borrower.query(api.requests.journeyPage, {
+          side: "outgoing",
+          paginationOpts,
+        })
+      ).page,
+    ).toMatchObject([
+      { id: requestId, status: "declined", toolArchived: true },
+    ]);
+  });
+
   it("keeps admin access server controlled", async () => {
     vi.stubEnv("ADMIN_CLERK_USER_ID", "admin");
     const { t, owner, borrower, admin, toolId } = await setup();
