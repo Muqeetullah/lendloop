@@ -4,7 +4,7 @@ A neighborhood tool lending board built for a take home assignment.
 
 ## Foundation status
 
-The app has a Next.js, TypeScript, and Tailwind foundation, a Convex data model, and Clerk sign in connected to Convex. Neighbors can list tools, request loans, respond, and mark approved loans returned. Listing editing, category filtering, admin screens, and n8n workflows remain planned. See the [project scope](docs/scope/scope.md) and [architecture decision](docs/specs/0001-application-architecture/index.md).
+The app has a Next.js, TypeScript, and Tailwind foundation, a Convex data model, and Clerk sign in connected to Convex. Neighbors can browse tools by category, manage their own listings, request loans, respond, and mark approved loans returned. Admin screens and n8n workflows remain planned. See the [project scope](docs/scope/scope.md) and [architecture decision](docs/specs/0001-application-architecture/index.md).
 
 ## Run locally
 
@@ -47,6 +47,6 @@ The current tests use `convex-test`, a simulated backend. They check function be
 
 Dates are inclusive UTC calendar days. Approval rejects overlapping loans and, while a loan is overdue and unreturned, rejects further approvals for that tool. Either participant can mark an approved loan returned. Each account can have at most 10 pending requests, only one pending request per tool, and at most 10 new requests per hour. These limits reduce accidental duplicates and basic flooding; they do not prevent someone from creating multiple accounts.
 
-The public board and participant request lists load in bounded pages. The signed in tool board currently shows the latest 100 listings. Availability refreshes at UTC date changes, within 30 seconds for an active page or on focus. Only the server determines the current date.
+The public board, signed in tool board, personal listings, and participant request lists load in bounded pages. Category filtering is applied on the server. Removing a listing archives it, preserving loan history and allowing approved loans to be returned. Availability refreshes at UTC date changes, within 30 seconds for an active page or on focus. Only the server determines the current date.
 
 Neighbors can optionally set a display name and contact method in their sharing details. Names appear to participants on their requests. Contact details are shown only to the other participant while a loan is approved; they are not included in the public tool board. Existing users without a display name appear as “Neighbor” with a request reference until they set one.

@@ -15,6 +15,11 @@ import {
   type ReactNode,
 } from "react";
 import { useUtcDay } from "@/components/lib/use-utc-day";
+import {
+  categories,
+  ListingForm,
+  MyListings,
+} from "@/components/board/listing-management";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -125,7 +130,12 @@ function ConnectWorkspace() {
 
 function Workspace() {
   const day = useUtcDay();
-  const tools = useQuery(api.tools.board, { refreshKey: day });
+  const [category, setCategory] = useState("");
+  const tools = usePaginatedQuery(
+    api.tools.boardPage,
+    { refreshKey: day, ...(category ? { category } : {}) },
+    { initialNumItems: 12 },
+  );
   const incoming = usePaginatedQuery(
     api.requests.journeyPage,
     { side: "incoming" },
@@ -139,7 +149,6 @@ function Workspace() {
   const [showForm, setShowForm] = useState(false);
   const [requestTool, setRequestTool] = useState<Id<"tools"> | null>(null);
   if (
-    !tools ||
     incoming.status === "LoadingFirstPage" ||
     outgoing.status === "LoadingFirstPage"
   )
@@ -156,10 +165,7 @@ function Workspace() {
       <div className="workspace-heading">
         <div>
           <h3>Neighborhood tools</h3>
-          <p>
-            Browse the latest 100 listings. Availability is based on today in
-            UTC.
-          </p>
+          <p>Availability is based on today in UTC.</p>
         </div>
         <Button
           onClick={() => setShowForm(!showForm)}
@@ -169,23 +175,50 @@ function Workspace() {
         </Button>
       </div>
       {showForm && <ListingForm onDone={() => setShowForm(false)} />}
-      {tools.length === 0 ? (
+      <div className="category-filter">
+        <label className="field__label" htmlFor="board-category">
+          Filter by category
+        </label>
+        <select
+          id="board-category"
+          className="field__input"
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+        >
+          <option value="">All categories</option>
+          {categories.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </div>
+      {tools.status === "LoadingFirstPage" ? (
         <StatePanel
-          title="Be the first to share"
-          description="Add a tool to get your neighborhood started."
+          kind="loading"
+          title="Loading neighborhood tools"
+          description="Just a moment."
+        />
+      ) : tools.results.length === 0 ? (
+        <StatePanel
+          title={
+            category ? "No tools in this category" : "Be the first to share"
+          }
+          description={
+            category
+              ? "Choose another category to see more tools."
+              : "Add a tool to get your neighborhood started."
+          }
         />
       ) : (
         <ul className="journey-grid">
-          {tools.map((tool) => (
+          {tools.results.map((tool) => (
             <li className="journey-card" key={tool.id}>
               <div className="journey-card__top">
                 <span className="tool-card__category">{tool.category}</span>
                 <span className="status-pill">
-                  {tool.own
-                    ? "Your listing"
-                    : tool.available
-                      ? "Available today"
-                      : "On loan"}
+                  {tool.own ? "Your listing · " : ""}
+                  {tool.available ? "Available today" : "On loan"}
                 </span>
               </div>
               <h4>{tool.name}</h4>
@@ -213,6 +246,20 @@ function Workspace() {
           ))}
         </ul>
       )}
+      {(tools.status === "CanLoadMore" || tools.status === "LoadingMore") && (
+        <div className="load-more">
+          <Button
+            variant="secondary"
+            disabled={tools.status === "LoadingMore"}
+            onClick={() => tools.loadMore(12)}
+          >
+            {tools.status === "LoadingMore"
+              ? "Loading…"
+              : "Show more neighborhood tools"}
+          </Button>
+        </div>
+      )}
+      <MyListings />
       <div className="request-columns">
         <RequestList
           title="Incoming requests"
@@ -303,102 +350,6 @@ function ProfileEditor() {
         </form>
       )}
     </div>
-  );
-}
-
-function ListingForm({ onDone }: { onDone: () => void }) {
-  const create = useMutation(api.tools.create);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setBusy(true);
-    setError("");
-    try {
-      await create({
-        name: String(form.get("name") ?? ""),
-        category: String(form.get("category") ?? ""),
-        condition: String(form.get("condition") ?? ""),
-        description: String(form.get("description") ?? ""),
-      });
-      onDone();
-    } catch {
-      setError(
-        "We couldn’t save your listing. Check the fields and try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <form className="journey-form" onSubmit={submit}>
-      <h4>List a tool</h4>
-      <div className="form-grid">
-        <Field name="name" label="Tool name" maxLength={80} required />
-        <div className="field">
-          <label className="field__label" htmlFor="tool-category">
-            Category
-          </label>
-          <select
-            id="tool-category"
-            className="field__input"
-            name="category"
-            required
-            defaultValue=""
-          >
-            <option value="" disabled>
-              Choose a category
-            </option>
-            <option>Power tools</option>
-            <option>Garden</option>
-            <option>Kitchen</option>
-            <option>Camping</option>
-            <option>Other</option>
-          </select>
-        </div>
-        <div className="field">
-          <label className="field__label" htmlFor="tool-condition">
-            Condition
-          </label>
-          <select
-            id="tool-condition"
-            className="field__input"
-            name="condition"
-            required
-            defaultValue=""
-          >
-            <option value="" disabled>
-              Choose a condition
-            </option>
-            <option>Like new</option>
-            <option>Good</option>
-            <option>Well used</option>
-          </select>
-        </div>
-        <div className="field field--wide">
-          <label className="field__label" htmlFor="tool-description">
-            Short description
-          </label>
-          <textarea
-            id="tool-description"
-            className="field__input"
-            name="description"
-            maxLength={500}
-            rows={3}
-            required
-          />
-        </div>
-      </div>
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      <Button type="submit" disabled={busy}>
-        {busy ? "Saving…" : "Add listing"}
-      </Button>
-    </form>
   );
 }
 

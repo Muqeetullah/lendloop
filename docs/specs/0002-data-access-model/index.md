@@ -62,6 +62,6 @@ Reasoning and tradeoffs are in [rationale.md](rationale.md).
 
 ## Lending safeguards added after review
 
-A borrower may have one pending request per tool and at most ten pending requests overall. A rolling account limit allows ten new requests per hour. Request views use participant scoped pagination. The public board uses bounded pages and reveals only tool names and categories. The signed in board currently shows the latest 100 listings.
+A borrower may have one pending request per tool and at most ten pending requests overall. A rolling account limit allows ten new requests per hour. Request views use participant scoped pagination. The public board uses bounded pages and reveals only tool names and categories. The signed in board and personal listings use bounded pages, and category filtering uses an indexed query.
 
 A user can voluntarily provide a display name and contact method. Only participants see each other’s display name in request views, and contact details are visible to the other participant only while the loan is approved. An empty profile uses a generic name and a request reference. Profile values are supplied and editable by the account owner.

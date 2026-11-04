@@ -812,3 +812,40 @@ select {
 .profile-form .button {
   justify-self: start;
 }
+
+.category-filter {
+  max-width: 19rem;
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+}
+.my-listings {
+  margin-top: 3.5rem;
+}
+.listing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.listing-message {
+  color: var(--body);
+}
+.journey-card .journey-form {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  background: var(--canvas);
+}
+.journey-card .form-grid {
+  grid-template-columns: 1fr;
+}
+.remove-confirmation {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--divider);
+}
+.remove-confirmation p {
+  margin: 0;
+  color: var(--body);
+  font-size: 0.875rem;
+}
