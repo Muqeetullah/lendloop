@@ -1,0 +1,9 @@
+# Generated or independently maintained artifacts
+.next/
+node_modules/
+package-lock.json
+next-env.d.ts
+convex/_generated/
+docs/
+AGENTS.md
+CLAUDE.md
