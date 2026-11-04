@@ -25,3 +25,7 @@ Use the cocoa accent for primary actions and focus indicators. Use labels that r
 ## Responsive and accessibility direction
 
 Stack content on small screens. Keep focus visible and controls comfortable to use. Support keyboard navigation and reduced motion.
+
+## Dashboard navigation
+
+Keep the landing page public and read only. Use a separate signed in dashboard with a clear navigation item for each task. Show one bounded page at a time and keep page controls visible and keyboard accessible. On small screens, wrap navigation without requiring sideways scrolling.

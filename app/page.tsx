@@ -1,6 +1,9 @@
 import { SiteHeader, Brand } from "@/components/board/site-header";
 import { ToolList } from "@/components/board/tool-list";
-import { LendingWorkspace } from "@/components/board/lending-workspace";
+import { Show, SignInButton } from "@clerk/nextjs";
+import Link from "next/link";
+import { Suspense } from "react";
+import { Button } from "@/components/ui/button";
 
 const steps = [
   {
@@ -41,9 +44,30 @@ export default function Home() {
               Borrow what you need. Lend what you don’t. Make a little more
               possible, together.
             </p>
-            <a className="button button--primary hero__button" href="#tools">
-              Explore available tools <span aria-hidden="true">↗</span>
-            </a>
+            <div className="hero__actions">
+              <Suspense>
+                <Show when="signed-in">
+                  <Link className="button button--primary" href="/dashboard">
+                    Go to dashboard <span aria-hidden="true">↗</span>
+                  </Link>
+                </Show>
+                <Show when="signed-out">
+                  <SignInButton
+                    mode="modal"
+                    forceRedirectUrl="/dashboard"
+                    signUpForceRedirectUrl="/dashboard"
+                  >
+                    <Button>
+                      Sign in to lend or borrow{" "}
+                      <span aria-hidden="true">↗</span>
+                    </Button>
+                  </SignInButton>
+                </Show>
+              </Suspense>
+              <a className="button button--secondary" href="#tools">
+                Explore available tools
+              </a>
+            </div>
             <p className="hero__note">
               <span aria-hidden="true">✳</span> A community built around
               sharing, not buying.
@@ -100,7 +124,6 @@ export default function Home() {
             <ToolList />
           </div>
         </section>
-        <LendingWorkspace />
         <section
           className="how-section shell"
           id="how-it-works"
