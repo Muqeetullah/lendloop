@@ -974,3 +974,21 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.request-draft {
+  margin: 0 0 1.5rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+}
+.request-draft__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.request-draft__heading h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}

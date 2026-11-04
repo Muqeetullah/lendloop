@@ -6,6 +6,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
   Component,
   useEffect,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -190,6 +191,15 @@ function ToolBrowser() {
   const day = useUtcDay();
   const [category, setCategory] = useState("");
   const [createSession, setCreateSession] = useState<object | null>(null);
+  const [requestTool, setRequestTool] = useState<{
+    id: Id<"tools">;
+    name: string;
+  } | null>(null);
+  const [requestMessage, setRequestMessage] = useState("");
+  const requestPanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (requestTool) requestPanel.current?.focus();
+  }, [requestTool]);
   return (
     <>
       <div className="workspace-heading">
@@ -234,29 +244,71 @@ function ToolBrowser() {
           ))}
         </select>
       </div>
-      <ToolResults key={`${category}:${day}`} category={category} day={day} />
+      {requestMessage && (
+        <p role="status" className="listing-message">
+          {requestMessage}
+        </p>
+      )}
+      {requestTool && (
+        <div
+          ref={requestPanel}
+          tabIndex={-1}
+          className="request-draft"
+          aria-labelledby="request-draft-heading"
+        >
+          <div className="request-draft__heading">
+            <h3 id="request-draft-heading">Request {requestTool.name}</h3>
+            <Button variant="quiet" onClick={() => setRequestTool(null)}>
+              Close
+            </Button>
+          </div>
+          <RequestForm
+            key={requestTool.id}
+            toolId={requestTool.id}
+            onDone={() => {
+              setRequestMessage(
+                "Request sent. You can follow its status under My requests.",
+              );
+              setRequestTool((current) =>
+                current === requestTool ? null : current,
+              );
+            }}
+          />
+        </div>
+      )}
+      <ToolResults
+        key={`${category}:${day}`}
+        category={category}
+        day={day}
+        requestTool={requestTool}
+        onToggleRequest={(tool) => {
+          setRequestMessage("");
+          setRequestTool((current) => (current?.id === tool.id ? null : tool));
+        }}
+      />
     </>
   );
 }
 
-function ToolResults({ category, day }: { category: string; day: string }) {
+function ToolResults({
+  category,
+  day,
+  requestTool,
+  onToggleRequest,
+}: {
+  category: string;
+  day: string;
+  requestTool: { id: Id<"tools">; name: string } | null;
+  onToggleRequest: (tool: { id: Id<"tools">; name: string }) => void;
+}) {
   const paging = usePageCursor();
   const tools = useQuery(api.tools.boardPage, {
     refreshKey: day,
     ...(category ? { category } : {}),
     paginationOpts: { numItems: 6, cursor: paging.cursor },
   });
-  const [requestTool, setRequestTool] = useState<{ id: Id<"tools"> } | null>(
-    null,
-  );
-  const [requestMessage, setRequestMessage] = useState("");
   return (
     <>
-      {requestMessage && (
-        <p role="status" className="listing-message">
-          {requestMessage}
-        </p>
-      )}
       {!tools ? (
         <StatePanel
           kind="loading"
@@ -291,30 +343,14 @@ function ToolResults({ category, day }: { category: string; day: string }) {
               {!tool.own && (
                 <Button
                   variant="secondary"
-                  onClick={() => {
-                    setRequestMessage("");
-                    setRequestTool((current) =>
-                      current?.id === tool.id ? null : { id: tool.id },
-                    );
-                  }}
+                  onClick={() =>
+                    onToggleRequest({ id: tool.id, name: tool.name })
+                  }
                 >
                   {requestTool?.id === tool.id
                     ? "Close request"
                     : "Request to borrow"}
                 </Button>
-              )}
-              {requestTool?.id === tool.id && (
-                <RequestForm
-                  toolId={tool.id}
-                  onDone={() => {
-                    setRequestMessage(
-                      "Request sent. You can follow its status under My requests.",
-                    );
-                    setRequestTool((current) =>
-                      current === requestTool ? null : current,
-                    );
-                  }}
-                />
               )}
             </li>
           ))}
