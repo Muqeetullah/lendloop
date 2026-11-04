@@ -15,6 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { useUtcDay } from "@/components/lib/use-utc-day";
+import { requestErrorMessage } from "@/components/board/request-errors";
 import {
   categories,
   ListingForm,
@@ -147,7 +148,10 @@ function Workspace() {
     { initialNumItems: 10 },
   );
   const [showForm, setShowForm] = useState(false);
-  const [requestTool, setRequestTool] = useState<Id<"tools"> | null>(null);
+  const [requestTool, setRequestTool] = useState<{ id: Id<"tools"> } | null>(
+    null,
+  );
+  const [requestMessage, setRequestMessage] = useState("");
   if (
     incoming.status === "LoadingFirstPage" ||
     outgoing.status === "LoadingFirstPage"
@@ -175,6 +179,11 @@ function Workspace() {
         </Button>
       </div>
       {showForm && <ListingForm onDone={() => setShowForm(false)} />}
+      {requestMessage && (
+        <p role="status" className="listing-message">
+          {requestMessage}
+        </p>
+      )}
       <div className="category-filter">
         <label className="field__label" htmlFor="board-category">
           Filter by category
@@ -227,19 +236,29 @@ function Workspace() {
               {!tool.own && (
                 <Button
                   variant="secondary"
-                  onClick={() =>
-                    setRequestTool(requestTool === tool.id ? null : tool.id)
-                  }
+                  onClick={() => {
+                    setRequestMessage("");
+                    setRequestTool((current) =>
+                      current?.id === tool.id ? null : { id: tool.id },
+                    );
+                  }}
                 >
-                  {requestTool === tool.id
+                  {requestTool?.id === tool.id
                     ? "Close request"
                     : "Request to borrow"}
                 </Button>
               )}
-              {requestTool === tool.id && (
+              {requestTool?.id === tool.id && (
                 <RequestForm
                   toolId={tool.id}
-                  onDone={() => setRequestTool(null)}
+                  onDone={() => {
+                    setRequestMessage(
+                      "Request sent. You can follow its status under My requests.",
+                    );
+                    setRequestTool((current) =>
+                      current === requestTool ? null : current,
+                    );
+                  }}
                 />
               )}
             </li>
@@ -361,6 +380,8 @@ function RequestForm({
   onDone: () => void;
 }) {
   const create = useMutation(api.requests.create);
+  const today = useUtcDay();
+  const [startDate, setStartDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -382,9 +403,12 @@ function RequestForm({
     try {
       await create({ toolId, startDate, endDate });
       onDone();
-    } catch {
+    } catch (error) {
       setError(
-        "We couldn’t send your request. Check the dates. You can have one pending request per tool, up to 10 pending requests, and make up to 10 requests per hour.",
+        requestErrorMessage(
+          error,
+          "We couldn’t send your request. Please try again.",
+        ),
       );
     } finally {
       setBusy(false);
@@ -393,8 +417,22 @@ function RequestForm({
   return (
     <form className="request-form" onSubmit={submit}>
       <p>Choose inclusive dates in UTC. The owner will review your request.</p>
-      <Field type="date" name="startDate" label="From" required />
-      <Field type="date" name="endDate" label="Until" required />
+      <Field
+        type="date"
+        name="startDate"
+        label="From"
+        min={today}
+        value={startDate}
+        onChange={(event) => setStartDate(event.target.value)}
+        required
+      />
+      <Field
+        type="date"
+        name="endDate"
+        label="Until"
+        min={startDate || today}
+        required
+      />
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -414,6 +452,7 @@ type RequestItem = {
   endDate: string;
   status: "pending" | "approved" | "declined" | "returned";
   neighborName: string;
+  toolArchived: boolean;
   contact: string | null;
 };
 function RequestList({
@@ -444,9 +483,12 @@ function RequestList({
     setError("");
     try {
       await respond({ requestId, decision });
-    } catch {
+    } catch (error) {
       setError(
-        "Couldn’t update the request. It may overlap another loan, have expired, or an overdue loan may need to be returned first.",
+        requestErrorMessage(
+          error,
+          "Couldn’t update the request. Please try again.",
+        ),
       );
     } finally {
       setBusy(null);
@@ -457,8 +499,13 @@ function RequestList({
     setError("");
     try {
       await markReturned({ requestId });
-    } catch {
-      setError("Couldn’t mark this loan returned. Please try again.");
+    } catch (error) {
+      setError(
+        requestErrorMessage(
+          error,
+          "Couldn’t mark this loan returned. Please try again.",
+        ),
+      );
     } finally {
       setBusy(null);
     }
@@ -493,17 +540,27 @@ function RequestList({
                       : "No contact details shared yet."}
                   </p>
                 )}
+                {request.toolArchived && (
+                  <p className="journey-meta">
+                    Listing removed
+                    {incoming && request.status === "pending"
+                      ? "; this request can be declined."
+                      : "."}
+                  </p>
+                )}
                 <span className="status-pill">{request.status}</span>
               </div>
               {incoming && request.status === "pending" && (
                 <div className="request-actions">
-                  <Button
-                    disabled={busy !== null}
-                    aria-label={`Approve ${request.toolName} for ${request.neighborName}, ${request.startDate} to ${request.endDate}, request ${request.id.slice(-6)}`}
-                    onClick={() => decide(request.id, "approved")}
-                  >
-                    Approve
-                  </Button>
+                  {!request.toolArchived && (
+                    <Button
+                      disabled={busy !== null}
+                      aria-label={`Approve ${request.toolName} for ${request.neighborName}, ${request.startDate} to ${request.endDate}, request ${request.id.slice(-6)}`}
+                      onClick={() => decide(request.id, "approved")}
+                    >
+                      Approve
+                    </Button>
+                  )}
                   <Button
                     variant="secondary"
                     disabled={busy !== null}

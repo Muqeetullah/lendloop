@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import {
   paginationOptsValidator,
   paginationResultValidator,
@@ -9,6 +9,7 @@ import { todayUtc, validDay } from "./lib/validation";
 
 export const create = mutation({
   args: { toolId: v.id("tools"), startDate: v.string(), endDate: v.string() },
+  returns: v.id("requests"),
   handler: async (ctx, { toolId, startDate, endDate }) => {
     const { user } = await userOrThrow(ctx);
     if (
@@ -17,11 +18,11 @@ export const create = mutation({
       startDate < todayUtc() ||
       endDate < startDate
     )
-      throw new Error("Invalid date range");
+      throw new ConvexError("Invalid date range");
     const tool = await ctx.db.get("tools", toolId);
-    if (!tool || tool.archived) throw new Error("Listing unavailable");
+    if (!tool || tool.archived) throw new ConvexError("Listing unavailable");
     if (tool.ownerId === user._id)
-      throw new Error("Cannot request your own listing");
+      throw new ConvexError("Cannot request your own listing");
     const pending = await ctx.db
       .query("requests")
       .withIndex("by_borrower_status", (q) =>
@@ -29,9 +30,11 @@ export const create = mutation({
       )
       .take(10);
     if (pending.some((request) => request.toolId === toolId))
-      throw new Error("You already have a pending request for this tool");
+      throw new ConvexError("You already have a pending request for this tool");
     if (pending.length >= 10)
-      throw new Error("You have reached the limit of 10 pending requests");
+      throw new ConvexError(
+        "You have reached the limit of 10 pending requests",
+      );
     const recent = await ctx.db
       .query("requests")
       .withIndex("by_borrower", (q) => q.eq("borrowerId", user._id))
@@ -41,7 +44,7 @@ export const create = mutation({
       recent.length >= 10 &&
       recent[9]._creationTime > Date.now() - 60 * 60 * 1000
     )
-      throw new Error("Too many requests. Please try again later");
+      throw new ConvexError("Too many requests. Please try again later");
     return await ctx.db.insert("requests", {
       toolId,
       lenderId: tool.ownerId,
@@ -58,18 +61,19 @@ export const respond = mutation({
     requestId: v.id("requests"),
     decision: v.union(v.literal("approved"), v.literal("declined")),
   },
+  returns: v.null(),
   handler: async (ctx, { requestId, decision }) => {
     const { user } = await userOrThrow(ctx);
     const request = await ctx.db.get("requests", requestId);
     if (!request || request.lenderId !== user._id)
-      throw new Error("Not authorized");
+      throw new ConvexError("Not authorized");
     if (request.status !== "pending")
-      throw new Error("Invalid request transition");
+      throw new ConvexError("Invalid request transition");
     if (decision === "approved") {
       const tool = await ctx.db.get("tools", request.toolId);
-      if (!tool || tool.archived) throw new Error("Listing unavailable");
+      if (!tool || tool.archived) throw new ConvexError("Listing unavailable");
       if (request.startDate < todayUtc())
-        throw new Error("Request start date has passed");
+        throw new ConvexError("Request start date has passed");
       const overdue = await ctx.db
         .query("requests")
         .withIndex("by_tool_status_end", (q) =>
@@ -80,7 +84,7 @@ export const respond = mutation({
         )
         .first();
       if (overdue)
-        throw new Error(
+        throw new ConvexError(
           "An overdue loan must be returned before another request can be approved",
         );
       const approved = await ctx.db
@@ -93,16 +97,18 @@ export const respond = mutation({
         )
         .take(101);
       if (approved.length > 100)
-        throw new Error("Too many active reservations to check safely");
+        throw new ConvexError("Too many active reservations to check safely");
       if (approved.some((loan) => request.startDate <= loan.endDate))
-        throw new Error("Loan dates overlap");
+        throw new ConvexError("Loan dates overlap");
     }
     await ctx.db.patch("requests", requestId, { status: decision });
+    return null;
   },
 });
 
 export const markReturned = mutation({
   args: { requestId: v.id("requests") },
+  returns: v.null(),
   handler: async (ctx, { requestId }) => {
     const { user } = await userOrThrow(ctx);
     const request = await ctx.db.get("requests", requestId);
@@ -110,10 +116,11 @@ export const markReturned = mutation({
       !request ||
       (request.lenderId !== user._id && request.borrowerId !== user._id)
     )
-      throw new Error("Not authorized");
+      throw new ConvexError("Not authorized");
     if (request.status !== "approved")
-      throw new Error("Invalid request transition");
+      throw new ConvexError("Invalid request transition");
     await ctx.db.patch("requests", requestId, { status: "returned" });
+    return null;
   },
 });
 
@@ -211,6 +218,7 @@ export const journeyPage = query({
         v.literal("returned"),
       ),
       neighborName: v.string(),
+      toolArchived: v.boolean(),
       contact: v.union(v.string(), v.null()),
     }),
   ),
@@ -237,11 +245,11 @@ export const journeyPage = query({
           const neighborId =
             side === "incoming" ? request.borrowerId : request.lenderId;
           const neighbor = await ctx.db.get("users", neighborId);
+          const tool = await ctx.db.get("tools", request.toolId);
           return {
             id: request._id,
-            toolName:
-              (await ctx.db.get("tools", request.toolId))?.name ??
-              "Unavailable listing",
+            toolName: tool?.name ?? "Unavailable listing",
+            toolArchived: !tool || tool.archived,
             startDate: request.startDate,
             endDate: request.endDate,
             status: request.status,
