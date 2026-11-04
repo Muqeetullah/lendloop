@@ -156,7 +156,7 @@ export function MyListings() {
   );
   const archive = useMutation(api.tools.archive);
   const [editing, setEditing] = useState<{ id: Id<"tools"> } | null>(null);
-  const [removing, setRemoving] = useState<Id<"tools"> | null>(null);
+  const [removing, setRemoving] = useState<{ id: Id<"tools"> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   async function remove(toolId: Id<"tools">) {
@@ -164,7 +164,7 @@ export function MyListings() {
     setMessage("");
     try {
       await archive({ toolId });
-      setRemoving(null);
+      setRemoving((current) => (current === removing ? null : current));
       setMessage("Listing removed. Loan history is preserved.");
     } catch {
       setMessage("Couldn’t remove this listing. Please try again.");
@@ -213,7 +213,7 @@ export function MyListings() {
                     )
                   }
                 />
-              ) : removing === listing.id ? (
+              ) : removing?.id === listing.id ? (
                 <div className="remove-confirmation">
                   <p>
                     Remove {listing.name}? It will disappear from the board.
@@ -255,7 +255,7 @@ export function MyListings() {
                     aria-label={`Remove ${listing.name}`}
                     onClick={() => {
                       setEditing(null);
-                      setRemoving(listing.id);
+                      setRemoving({ id: listing.id });
                       setMessage("");
                     }}
                   >
