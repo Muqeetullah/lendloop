@@ -173,6 +173,7 @@ const listingView = v.object({
   description: v.string(),
   own: v.boolean(),
   available: v.boolean(),
+  trustedLender: v.boolean(),
 });
 
 // The selected category is indexed so a page is filtered before it is read.
@@ -220,6 +221,7 @@ export const boardPage = query({
                 .lte("startDate", today),
             )
             .first();
+          const owner = await ctx.db.get("users", tool.ownerId);
           return {
             id: tool._id,
             name: tool.name,
@@ -228,6 +230,7 @@ export const boardPage = query({
             description: tool.description,
             own: tool.ownerId === user._id,
             available: !current,
+            trustedLender: owner?.trustedLender ?? false,
           };
         }),
       ),

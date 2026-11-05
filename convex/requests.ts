@@ -6,6 +6,7 @@ import {
 import { mutation, query } from "./_generated/server";
 import { adminOrThrow, userOrThrow } from "./lib/access";
 import { todayUtc, validDay } from "./lib/validation";
+import { enqueueRequestEvent } from "./lib/events";
 
 export const create = mutation({
   args: { toolId: v.id("tools"), startDate: v.string(), endDate: v.string() },
@@ -45,7 +46,7 @@ export const create = mutation({
       recent[9]._creationTime > Date.now() - 60 * 60 * 1000
     )
       throw new ConvexError("Too many requests. Please try again later");
-    return await ctx.db.insert("requests", {
+    const requestId = await ctx.db.insert("requests", {
       toolId,
       lenderId: tool.ownerId,
       borrowerId: user._id,
@@ -53,6 +54,8 @@ export const create = mutation({
       endDate,
       status: "pending",
     });
+    await enqueueRequestEvent(ctx, requestId, tool.ownerId, "pending");
+    return requestId;
   },
 });
 
@@ -102,6 +105,7 @@ export const respond = mutation({
         throw new ConvexError("Loan dates overlap");
     }
     await ctx.db.patch("requests", requestId, { status: decision });
+    await enqueueRequestEvent(ctx, requestId, request.borrowerId, decision);
     return null;
   },
 });
@@ -120,6 +124,12 @@ export const markReturned = mutation({
     if (request.status !== "approved")
       throw new ConvexError("Invalid request transition");
     await ctx.db.patch("requests", requestId, { status: "returned" });
+    await enqueueRequestEvent(
+      ctx,
+      requestId,
+      request.lenderId === user._id ? request.borrowerId : request.lenderId,
+      "returned",
+    );
     return null;
   },
 });
@@ -219,6 +229,13 @@ export const journeyPage = query({
       ),
       neighborName: v.string(),
       toolArchived: v.boolean(),
+      activity: v.array(
+        v.object({
+          kind: v.union(v.literal("notification"), v.literal("reminder")),
+          status: v.string(),
+          at: v.number(),
+        }),
+      ),
       contact: v.union(v.string(), v.null()),
     }),
   ),
@@ -246,10 +263,37 @@ export const journeyPage = query({
             side === "incoming" ? request.borrowerId : request.lenderId;
           const neighbor = await ctx.db.get("users", neighborId);
           const tool = await ctx.db.get("tools", request.toolId);
+          const [events, reminders] = await Promise.all([
+            ctx.db
+              .query("automationEvents")
+              .withIndex("by_request", (q) => q.eq("requestId", request._id))
+              .order("desc")
+              .take(5),
+            ctx.db
+              .query("reminderRecords")
+              .withIndex("by_key", (q) => q.eq("requestId", request._id))
+              .order("desc")
+              .take(5),
+          ]);
+          const activity = [
+            ...events.map((event) => ({
+              kind: "notification" as const,
+              status: event.delivery,
+              at: event.deliveredAt ?? event._creationTime,
+            })),
+            ...reminders.map((reminder) => ({
+              kind: "reminder" as const,
+              status: reminder.status,
+              at: reminder._creationTime,
+            })),
+          ]
+            .sort((a, b) => b.at - a.at)
+            .slice(0, 5);
           return {
             id: request._id,
             toolName: tool?.name ?? "Unavailable listing",
             toolArchived: !tool || tool.archived,
+            activity,
             startDate: request.startDate,
             endDate: request.endDate,
             status: request.status,

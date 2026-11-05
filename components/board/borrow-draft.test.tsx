@@ -15,22 +15,25 @@ const mocked = vi.hoisted(() => ({
   query: vi.fn(
     (
       _reference: unknown,
-      args: { refreshKey: string; paginationOpts: { cursor: string | null } },
-    ) => ({
-      page: [
-        {
-          id: args.paginationOpts.cursor ? "second-tool" : "first-tool",
-          name: args.paginationOpts.cursor ? "Second tool" : "First tool",
-          category: "Garden",
-          condition: "Good",
-          description: "A useful tool",
-          own: false,
-          available: true,
-        },
-      ],
-      isDone: args.paginationOpts.cursor !== null,
-      continueCursor: "second-page",
-    }),
+      args: { refreshKey?: string; paginationOpts?: { cursor: string | null } },
+    ) =>
+      !args.paginationOpts
+        ? false
+        : {
+            page: [
+              {
+                id: args.paginationOpts.cursor ? "second-tool" : "first-tool",
+                name: args.paginationOpts.cursor ? "Second tool" : "First tool",
+                category: "Garden",
+                condition: "Good",
+                description: "A useful tool",
+                own: false,
+                available: true,
+              },
+            ],
+            isDone: args.paginationOpts.cursor !== null,
+            continueCursor: "second-page",
+          },
   ),
 }));
 

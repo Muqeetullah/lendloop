@@ -8,7 +8,13 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
+import type * as automation from "../automation.js";
+import type * as crons from "../crons.js";
+import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_events from "../lib/events.js";
+import type * as lib_signature from "../lib/signature.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as reminders from "../reminders.js";
 import type * as requests from "../requests.js";
@@ -22,7 +28,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
+  automation: typeof automation;
+  crons: typeof crons;
+  http: typeof http;
   "lib/access": typeof lib_access;
+  "lib/events": typeof lib_events;
+  "lib/signature": typeof lib_signature;
   "lib/validation": typeof lib_validation;
   reminders: typeof reminders;
   requests: typeof requests;

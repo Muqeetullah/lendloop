@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePageCursor } from "@/components/lib/pagination";
+import { AdminLink, AdminPanel } from "@/components/board/admin-panel";
 import { Pagination } from "@/components/ui/pagination";
 import { useUtcDay } from "@/components/lib/use-utc-day";
 import { requestErrorMessage } from "@/components/board/request-errors";
@@ -56,7 +57,7 @@ class WorkspaceBoundary extends Component<
 }
 
 export type DashboardView =
-  "tools" | "listings" | "requests" | "incoming" | "profile";
+  "tools" | "listings" | "requests" | "incoming" | "profile" | "admin";
 const dashboardLinks: { view: DashboardView; label: string; icon: string }[] = [
   { view: "tools", label: "Browse tools", icon: "⌂" },
   { view: "listings", label: "My listings", icon: "▤" },
@@ -86,6 +87,7 @@ export function LendingWorkspace({ view }: { view: DashboardView }) {
                 {link.label}
               </Link>
             ))}
+            <AdminLink current={view === "admin"} />
           </nav>
           <div className="dashboard-content">
             <WorkspaceBoundary>
@@ -166,6 +168,7 @@ function ConnectWorkspace({ view }: { view: DashboardView }) {
 }
 
 function Workspace({ view }: { view: DashboardView }) {
+  if (view === "admin") return <AdminPanel />;
   if (view === "listings") return <MyListings />;
   if (view === "requests")
     return <RequestSection key="outgoing" side="outgoing" />;
@@ -338,6 +341,9 @@ function ToolResults({
                 </span>
               </div>
               <h3>{tool.name}</h3>
+              {tool.trustedLender && (
+                <span className="trusted-badge">Trusted lender</span>
+              )}
               <p>{tool.description}</p>
               <p className="journey-meta">Condition: {tool.condition}</p>
               {!tool.own && (
@@ -575,6 +581,7 @@ type RequestItem = {
   status: "pending" | "approved" | "declined" | "returned";
   neighborName: string;
   toolArchived: boolean;
+  activity: { kind: "notification" | "reminder"; status: string; at: number }[];
   contact: string | null;
 };
 function RequestList({
@@ -666,6 +673,22 @@ function RequestList({
                   </p>
                 )}
                 <span className="status-pill">{request.status}</span>
+                {request.activity.length > 0 && (
+                  <div className="automation-activity">
+                    <p>Automation activity</p>
+                    <ul>
+                      {request.activity.map((item, index) => (
+                        <li key={`${item.kind}-${item.at}-${index}`}>
+                          {item.kind === "reminder"
+                            ? "Mock reminder"
+                            : "Mock request notification"}
+                          : {item.status} ·{" "}
+                          {new Date(item.at).toISOString().slice(0, 10)} UTC
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
               {incoming && request.status === "pending" && (
                 <div className="request-actions">

@@ -41,7 +41,24 @@ export default defineSchema({
     .index("by_tool_status_end", ["toolId", "status", "endDate"])
     .index("by_borrower_status", ["borrowerId", "status"])
     .index("by_lender", ["lenderId"])
-    .index("by_borrower", ["borrowerId"]),
+    .index("by_borrower", ["borrowerId"])
+    .index("by_status_end", ["status", "endDate"]),
+  automationEvents: defineTable({
+    requestId: v.id("requests"),
+    recipientId: v.id("users"),
+    eventStatus: requestStatus,
+    delivery: v.union(
+      v.literal("pending"),
+      v.literal("delivered"),
+      v.literal("failed"),
+    ),
+    attempts: v.number(),
+    nextAttemptAt: v.number(),
+    lastError: v.optional(v.string()),
+    deliveredAt: v.optional(v.number()),
+  })
+    .index("by_delivery_next", ["delivery", "nextAttemptAt"])
+    .index("by_request", ["requestId"]),
   reminderRecords: defineTable({
     requestId: v.id("requests"),
     day: v.string(),
