@@ -13,7 +13,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Stack
 
 - Next.js App Router, React, TypeScript, Tailwind CSS, and npm.
-- Clerk and Convex are connected for development; n8n workflows remain to be built.
+- Clerk and Convex are connected for development; self-hosted n8n workflows record mock notifications and reminders.
 - The architecture decision is in `docs/specs/0001-application-architecture/index.md`.
 
 ## Build approach

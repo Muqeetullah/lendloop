@@ -1,0 +1,292 @@
+{
+  "name": "LendLoop - daily overdue reminders",
+  "nodes": [
+    {
+      "id": "daily-schedule",
+      "name": "Daily schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "manual-test",
+      "name": "Manual test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 160],
+      "parameters": {}
+    },
+    {
+      "id": "start-pagination",
+      "name": "Start pagination",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "return [{json:{cursor:null}}];"
+      }
+    },
+    {
+      "id": "sign-overdue-page",
+      "name": "Sign overdue page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nconst base = $env.CONVEX_SITE_URL;\nif (!secret || !base) throw new Error('Automation is not configured');\nconst cursor = $input.first().json.cursor ?? null;\nconst path = '/automation/overdue';\nconst rawBody = JSON.stringify({cursor});\nconst timestamp = String(Date.now());\nreturn [{json:{url:base.replace(/\\/$/, '') + path, rawBody, timestamp, signature:crypto.createHmac('sha256', secret).update(`v1.${timestamp}.POST.${path}.${rawBody}`).digest('hex')}}];"
+      }
+    },
+    {
+      "id": "fetch-overdue-page",
+      "name": "Fetch overdue page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.rawBody }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "prepare-reminders",
+      "name": "Prepare reminders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.N8N_TO_CONVEX_SECRET;\nconst base = $env.CONVEX_SITE_URL;\nconst result = $input.first().json;\nif (!secret || !base || !Array.isArray(result.page) || typeof result.day !== 'string' || typeof result.isDone !== 'boolean') throw new Error('Invalid overdue response');\nconst meta = { isDone: result.isDone, continueCursor: result.continueCursor };\nif (!result.page.length) return [{json:{skip:true, ...meta}}];\nreturn result.page.map(({requestId}) => {\n  const path = '/automation/reminder';\n  const rawBody = JSON.stringify({requestId, day:result.day});\n  const timestamp = String(Date.now());\n  return {json:{skip:false, ...meta, url:base.replace(/\\/$/, '') + path, rawBody, timestamp, signature:crypto.createHmac('sha256', secret).update(`v1.${timestamp}.POST.${path}.${rawBody}`).digest('hex')}};\n});"
+      }
+    },
+    {
+      "id": "empty-page",
+      "name": "Empty page",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1100, 0],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "skip-empty",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "record-mock-reminder",
+      "name": "Record mock reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 120],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.rawBody }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "next-page",
+      "name": "Next page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 0],
+      "parameters": {
+        "jsCode": "const previous = $('Prepare reminders').first(0, $runIndex).json;\nif (previous.isDone) return [];\nif (typeof previous.continueCursor !== 'string' || !previous.continueCursor) throw new Error('Missing next-page cursor');\nreturn [{json:{cursor:previous.continueCursor}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Daily schedule": {
+      "main": [
+        [
+          {
+            "node": "Start pagination",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual test": {
+      "main": [
+        [
+          {
+            "node": "Start pagination",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start pagination": {
+      "main": [
+        [
+          {
+            "node": "Sign overdue page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign overdue page": {
+      "main": [
+        [
+          {
+            "node": "Fetch overdue page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch overdue page": {
+      "main": [
+        [
+          {
+            "node": "Prepare reminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare reminders": {
+      "main": [
+        [
+          {
+            "node": "Empty page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Empty page": {
+      "main": [
+        [
+          {
+            "node": "Next page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record mock reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record mock reminder": {
+      "main": [
+        [
+          {
+            "node": "Next page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next page": {
+      "main": [
+        [
+          {
+            "node": "Sign overdue page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "timezone": "UTC"
+  },
+  "active": false
+}

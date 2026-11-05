@@ -1,0 +1,121 @@
+{
+  "name": "LendLoop - request notification",
+  "nodes": [
+    {
+      "id": "request-webhook",
+      "name": "Request webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-request",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "lendloop-request"
+    },
+    {
+      "id": "verify-and-sign",
+      "name": "Verify and sign",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst input = $input.first().json;\nconst body = input.body;\nconst headers = input.headers || {};\nconst timestamp = String(headers['x-lendloop-timestamp'] || '');\nconst signature = String(headers['x-lendloop-signature'] || '');\nconst secret = $env.CONVEX_TO_N8N_SECRET;\nif (!secret || !body || typeof body.eventId !== 'string' || Object.keys(body).length !== 1 || !/^\\d{13}$/.test(timestamp) || Math.abs(Date.now() - Number(timestamp)) > 300000 || !/^[a-f0-9]{64}$/.test(signature)) throw new Error('Invalid signed request');\nconst expected = crypto.createHmac('sha256', secret).update(`v1.${timestamp}.POST.request-notification.${body.eventId}`).digest();\nif (!crypto.timingSafeEqual(expected, Buffer.from(signature, 'hex'))) throw new Error('Invalid signed request');\nconst outboundSecret = $env.N8N_TO_CONVEX_SECRET;\nconst base = $env.CONVEX_SITE_URL;\nif (!outboundSecret || !base) throw new Error('Automation is not configured');\nconst path = '/automation/notification';\nconst rawBody = JSON.stringify({ eventId: body.eventId });\nconst time = String(Date.now());\nreturn [{json:{url:base.replace(/\\/$/, '') + path, rawBody, timestamp:time, signature:crypto.createHmac('sha256', outboundSecret).update(`v1.${time}.POST.${path}.${rawBody}`).digest('hex')}}];"
+      }
+    },
+    {
+      "id": "record-mock-notification",
+      "name": "Record mock notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-lendloop-timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.rawBody }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "respond-to-webhook",
+      "name": "Respond to webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [660, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\": true}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Request webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify and sign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify and sign": {
+      "main": [
+        [
+          {
+            "node": "Record mock notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record mock notification": {
+      "main": [
+        [
+          {
+            "node": "Respond to webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "timezone": "UTC"
+  },
+  "active": false
+}

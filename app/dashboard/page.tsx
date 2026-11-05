@@ -11,6 +11,7 @@ const views: DashboardView[] = [
   "requests",
   "incoming",
   "profile",
+  "admin",
 ];
 
 export default async function Dashboard({

@@ -19,11 +19,11 @@ LendLoop is an interview assignment for a neighborhood tool lending board. Neigh
 | 6 | Public discovery and listings | Slice 2 | done |
 | 7 | Request and loan management | Slice 3 | done |
 | 7a | Dashboard and page navigation | Refinement | done |
-| 8 | Admin controls | Slice 4 | planned |
-| 9 | Request notifications | Slice 5 | planned |
-| 10 | Overdue reminders | Slice 6 | planned |
-| 11 | Verification and submission | Slice 7 | planned |
-| 12 | Loan automation activity | Bonus | planned |
+| 8 | Admin controls | Slice 4 | in progress |
+| 9 | Request notifications | Slice 5 | in progress |
+| 10 | Overdue reminders | Slice 6 | in progress |
+| 11 | Verification and submission | Slice 7 | in progress |
+| 12 | Loan automation activity | Bonus | in progress |
 
 ## Foundation
 
@@ -107,38 +107,47 @@ Code: `app/dashboard/`, `components/board/`, and `components/lib/pagination.ts`.
 
 ## Slice 4: Admin controls
 
-### 8. Admin controls · planned
+### 8. Admin controls · in progress
 Give an administrator the limited controls needed to moderate the board.
 **Done when:** an admin can remove any listing, see all loans, and mark a lender trusted; ordinary users cannot perform these actions even through direct backend calls.
-- [ ] Build it: `/develop admin controls`
+- [x] Build administrator views and enforce authorization in Convex.
+- [x] Verify admin and ordinary-user access in simulated tests.
+- [ ] Verify the dashboard with a configured real administrator.
 
 ## Slice 5: Request notifications
 
-### 9. Request notifications · planned · needs a decision
+### 9. Request notifications · in progress
 Notify the relevant person when a request is created or changes status, while making failed delivery visible.
 **Done when:** signed events reach the automation workflow, only necessary data is shared, retries are safe, and failures can be inspected and retried.
-- [ ] Design it: `/architect request notifications`
+- [x] Add signed webhook delivery, an idempotent mock notification, retries, failure visibility, and an exported workflow.
+- [x] Test webhook signatures and callbacks in local n8n and simulated Convex tests.
+- [ ] Verify the complete path with the configured development services.
 
 ## Slice 6: Overdue reminders
 
-### 10. Overdue reminders · planned · needs a decision
+### 10. Overdue reminders · in progress
 Find overdue loans daily and record reminder outcomes without creating duplicate reminder records.
 **Done when:** a scheduled workflow securely fetches overdue loans, sends or records reminders, writes results back safely on retries, and makes failures visible.
-- [ ] Design it: `/architect overdue reminders`
+- [x] Add signed, paginated overdue retrieval and idempotent mock reminder writes.
+- [x] Test pagination, retry failures, and duplicate prevention with local n8n and simulated Convex tests.
+- [ ] Verify the scheduled workflow against the configured development services.
 
 ## Slice 7: Verification and submission
 
-### 11. Verification and submission · planned
+### 11. Verification and submission · in progress
 Make the assignment reproducible and easy for a reviewer to assess.
 **Done when:** focused security, workflow, and interface checks pass; workflow exports and setup instructions are included; secrets are absent from the repository; and production improvements are documented.
-- [ ] Build it: `/develop verification and submission`
+- [x] Include workflow exports, local setup, security decisions, and production considerations.
+- [ ] Complete deployment-level verification, final checks, and submission.
 
 ## Bonus
 
-### 12. Loan automation activity · planned
+### 12. Loan automation activity · in progress
 Show participants useful recent notification and reminder outcomes on a loan.
 **Done when:** eligible viewers can see recent automation activity without access to unrelated loans or sensitive logs.
-- [ ] Build it: `/develop loan automation activity`
+- [x] Display bounded recent activity to request participants.
+- [x] Verify activity projection in simulated tests.
+- [ ] Verify activity with the configured development services.
 
 ## Deferred
 

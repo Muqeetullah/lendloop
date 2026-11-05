@@ -1,0 +1,27 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.46.6
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Set N8N_ENCRYPTION_KEY in .env.n8n}
+      CONVEX_SITE_URL: ${CONVEX_SITE_URL:?Set CONVEX_SITE_URL in .env.n8n}
+      CONVEX_TO_N8N_SECRET: ${CONVEX_TO_N8N_SECRET:?Set CONVEX_TO_N8N_SECRET in .env.n8n}
+      N8N_TO_CONVEX_SECRET: ${N8N_TO_CONVEX_SECRET:?Set N8N_TO_CONVEX_SECRET in .env.n8n}
+      WEBHOOK_URL: ${N8N_WEBHOOK_BASE_URL:?Set an HTTPS webhook base URL in .env.n8n}
+      N8N_EDITOR_BASE_URL: http://localhost:5678
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      GENERIC_TIMEZONE: UTC
+      TZ: UTC
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+volumes:
+  n8n_data:

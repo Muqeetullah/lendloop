@@ -992,3 +992,68 @@ select {
   margin: 0;
   font-size: 1.1rem;
 }
+
+.admin-section {
+  margin-top: 2rem;
+}
+.admin-section h3 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+.admin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.admin-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+  margin-bottom: 0.75rem;
+}
+.admin-list p {
+  color: var(--body);
+  font-size: 0.875rem;
+  margin: 0.3rem 0 0;
+}
+.admin-list .listing-actions {
+  margin-top: 0;
+}
+.trusted-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  background: var(--soft);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.automation-activity {
+  margin-top: 0.8rem;
+  color: var(--body);
+  font-size: 0.8rem;
+}
+.automation-activity p {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+.request-list .automation-activity ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.request-list .automation-activity li,
+.request-list .automation-activity li:first-child {
+  display: block;
+  border: 0;
+  padding: 0.1rem 0;
+  margin: 0;
+}

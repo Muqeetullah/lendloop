@@ -46,6 +46,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.clearAllTimers();
   vi.useRealTimers();
   vi.unstubAllEnvs();
 });
